@@ -26,9 +26,8 @@ The Mighty Eagle Templating Solution (METS) is capable of replacing a properly t
 This library is intended to run as an interpreted Euphoria program.  
 
 ## Running the demo
-TODO: Write a demo for the lib.
 
-Currently no demo exists, but several working examples exist in the test directory.
+Checkout the demo in the demo directory or look at the several working examples exist in the test directory.
 
 ## Installing:
 To use the library simply copy the project folder named mightyeagle to somewhere in your Euphoria include path.
