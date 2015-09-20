@@ -5,8 +5,14 @@ include std/map.e
 include mightyeagle/mightyeagle.e
 include std/sequence.e
 with trace
-function action_cb(mighty_eagle_t me, sequence template, map:map context)
-	return {}
+function action_cb(mighty_eagle_t me, sequence tag, sequence template, map:map context)
+	map:map data = map:new()
+	object retval = ""
+	for i = 1 to 2 do
+		map:put(data, "cnt", sprintf("%d", {i}))
+		retval = sprintf("%s%s", {retval, mighty_eagle:parse(me, template, data)})
+	end for
+	return retval
 end function 
 
 function tag_cb(mighty_eagle_t me, sequence tag, sequence tag_value, map:map context)
@@ -66,20 +72,17 @@ test_params = init_template_test("parse_missing_closing_subsitution_curly")
 me = mighty_eagle:new()
 test_equal("parse_missing_closing_subsitution_curly", mighty_eagle:MISSING_CLOSING_CURLY, mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
 
+-- Parser should run an action callback that performs a loop.
+test_params = init_template_test("parse_action_cb")
+me = mighty_eagle:new()
+mighty_eagle:add_action_cb(me, "sayit2x", routine_id("action_cb"))
+test_equal("parse_action_cb", test_params[EXPECTED_RESULT], mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
 
--- TODO setup a test with the missing : in the action tag closing
---test_params = init_template_test("parse_invalid_action_tag")
---me = mighty_eagle:new()
---mighty_eagle:add_tag_cb(me, "birthday", routine_id("tag_cb"))
---test_equal("parse_invalid_action_tag", test_params[EXPECTED_RESULT], mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
-
---test_params = init_template_test("parse_action_cb")
---me = mighty_eagle:new()
---test_equal("parse_action_cb", test_params[EXPECTED_RESULT], mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
-
---test_params = init_template_test("parse_action_and_tag_cb")
---me = mighty_eagle:new()
---test_equal("parse_action_and_tag_cb", test_params[EXPECTED_RESULT], mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
+-- Parser should echo all data starting from the beginning of the unclosed tag.
+test_params = init_template_test("parse_missing_action_tag_close")
+me = mighty_eagle:new()
+mighty_eagle:add_action_cb(me, "sayit2x", routine_id("action_cb"))
+test_equal("parse_missing_action_tag_close", test_params[EXPECTED_RESULT], mighty_eagle:parse(me, test_params[TEMPLATE], test_params[DATA]))
 
 test_report()
 

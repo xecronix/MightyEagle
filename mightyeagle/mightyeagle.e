@@ -7,6 +7,7 @@ with trace
 -- enum used for managing state in the parser
 
 enum
+	SKIP,
 	ECHO,
 	TAG_OPENING,
 	TAG_OPEN,
@@ -46,12 +47,12 @@ public enum
 	INVALID_TAG,
 	MISSING_CLOSING_CURLY,
 	MISSING_CLOSING_COLON,
-	TAG_CALLBACK_ERROR	
+	TAG_CALLBACK_ERROR,
+	UNREACHABLE_NOT_TRUE
 
 -- Private
 -- TODO Document me
 function run_tag_cb(mighty_eagle_t self, sequence tag, map:map context)
-	--trace(1)
 	object retval = OK
 	map:map cb_seq = eumem:ram_space[self][TAG_CB]
 	atom func = map:get(cb_seq, tag, -1)
@@ -95,9 +96,9 @@ end type
 -- 0
 
 public function add_action_cb(mighty_eagle_t self, sequence action_tag, atom function_id)
-	map:map m = self[ACTION_CB]
+	map:map m = eumem:ram_space[self][ACTION_CB]
 	map:put(m, action_tag, function_id)
-	self[ACTION_CB] = m
+	eumem:ram_space[self][ACTION_CB] = m
 	return 0
 end function 
 
@@ -149,6 +150,7 @@ end function
 public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 	object retval = ""
 	sequence current_tag = ""
+	sequence sub_template = ""
 	integer state = ECHO
 	integer tag_type = NONE
 	integer level = 0
@@ -156,28 +158,33 @@ public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 	sequence current_char = {}
 	integer begin_open_position = 1
 	integer end_open_position = 1
+	integer skip_count = 0
 	
 	for i = 1 to length(template_str) do
 		if state = ERROR then
 			return retval -- bail on errors
 		end if
 		current_char = slice(template_str, i, i)
-		if state = ECHO then
+		if state = SKIP then
+			skip_count -= 1
+			if skip_count = 0 then
+				state = ECHO
+			end if
+		elsif state = ECHO then
 			if equal(current_char, "{") then
 				state = TAG_OPENING
 			else
 				retval = sprintf("%s%s", {retval, current_char})
 			end if
 		elsif state = TAG_OPENING then
+			current_tag = ""
 			if equal(current_char, "=") then
 				tag_type = SUBSITUTION
 				state = TAG_OPEN
-				current_tag = ""
 				begin_open_position = i - 1
 			elsif equal(current_char, "@") then
 				tag_type = ACTION
 				state = TAG_OPEN
-				current_tag = ""
 				begin_open_position = i - 1
 			else
 				tag_type = NONE
@@ -188,33 +195,39 @@ public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 			if length(current_tag) = 0 and equal(current_char, " ") then
 				-- NOOP Ignore leading spaces
 				state = TAG_OPEN
-				--trace(1)
 			else
 				if tag_type = SUBSITUTION then
 					if equal(current_char, " ") then
 						-- NOOP Ignore trailing spaces
-						--trace(1)
 						tag_type = SUBSITUTION
 					elsif equal(current_char, ":") then
 						state = TAG_CLOSING
-						--trace(1)
 					elsif equal(current_char, "}") then -- case for common mistake 
 						state = ERROR
 						retval = MISSING_CLOSING_COLON
 					elsif find(current_char[1], valid_tag_chars) > 0 then
 						current_tag = sprintf("%s%s", {current_tag, current_char})
-						--trace(1)
 					else
 						state = ERROR
 					end if
 				elsif tag_type = ACTION then
-					--TODO
+					if find(current_char[1], valid_tag_chars) > 0 then
+						current_tag = sprintf("%s%s", {current_tag, current_char})
+					else
+						if length(current_tag) = 0 then
+							retval = INVALID_TAG
+							state = ERROR
+						else
+							state = TAG_CLOSING
+							level = 1
+						end if
+					end if
 				else
-					-- Don't know what happened but it must be a logic err.
+					state = ERROR
+					retval = UNREACHABLE_NOT_TRUE
 				end if
 			end if
 		elsif state = TAG_CLOSING then
-			--trace(1)
 			if (tag_type = SUBSITUTION) then
 				if equal(current_char, "}") then
 					end_open_position = i
@@ -240,18 +253,60 @@ public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 					if state != ERROR then
 						retval = sprintf("%s%s", {retval, val})
 						state = ECHO
+						current_tag = ""
 					end if
 				else
 					state = ERROR
 					retval = MISSING_CLOSING_CURLY
 				end if
 			elsif (tag_type = ACTION) then
-				-- TODO
+				if equal(current_char, "{") then
+					sequence next_char = slice(template_str, i+1, i+1)
+					if equal(next_char, "@") or equal(next_char, "=")then
+						level += 1
+					end if
+				elsif equal(current_char, ":") then
+					sequence next_char = slice(template_str, i+1, i+1)
+					if equal(next_char, "}") then
+						level -= 1
+					end if
+				end if
+				
+				if (level != 0) then
+					sub_template = sprintf("%s%s", {sub_template, current_char})
+				else
+					object cb_result = run_action_cb(self, current_tag, sub_template, data)
+					if atom(cb_result) then
+						if cb_result = OK then
+							-- we don't have a callback for this action.  
+							-- In this case just add the sub_template to the retval.
+							retval = sprintf("%s%s%s", {retval, sub_template, current_char})
+							state = ECHO
+							sub_template = ""
+							current_tag = ""
+						else
+							-- we called the callback and it returned and error.
+							state = ERROR
+							retval = cb_result
+						end if
+					else
+						-- we called the callback and it returned a sequence.
+						-- add the sequence to the retval
+						retval = sprintf("%s%s", {retval, cb_result})
+						state = SKIP
+						skip_count = 1
+						sub_template = ""
+						current_tag = ""
+					end if
+				end if
 			else
-				-- Another logic error.
+				state = ERROR
+				retval = UNREACHABLE_NOT_TRUE
 			end if
 		end if
 	end for
-	
+	if length(current_tag) then
+		retval = sprintf("%s%s", {retval,slice(template_str, begin_open_position)})
+	end if 
 	return retval
 end function
