@@ -1,8 +1,14 @@
+--****
+-- == Mighty Eagle Template Solution
+--
+-- <<LEVELTOC level=2 depth=4>>
+--
+
 namespace mighty_eagle
 include std/map.e
 include std/eumem.e
 include std/sequence.e
-with trace
+
 -- Private 
 -- enum used for managing state in the parser
 
@@ -40,8 +46,13 @@ constant MIGHTY_EAGLE_ID="MIGHTYEAGLE$8i7u64y5t3qrawesdyjukm"
 constant SIZEOF_MIGHTY_EAGLE = __MYSIZE__
 constant OK = 0
 
---**
---enum for error codes
+--
+--Error codes Implemented as an enum
+--	* INVALID_TAG
+--	* MISSING_CLOSING_CURLY
+--	* MISSING_CLOSING_COLON
+--	* TAG_CALLBACK_ERROR
+--	* UNREACHABLE_NOT_TRUE
 
 public enum 
 	INVALID_TAG,
@@ -94,6 +105,15 @@ end type
 -- # ##function_id## A routine_id to run when the specifice action_tag is found during parsing
 -- Returns:
 -- 0
+-- Comments:
+-- The function identified by ##function_id## needs to implement the following 
+-- interface/function signature like the example below.
+-- <eucode>
+-- function action_cb(mighty_eagle_t me, sequence tag, sequence template, map:map context)
+-- </eucode>
+-- The function is expected to return a string or an atom if there was an error.
+-- The context map is the current tag name/value pairs in the current context during parsing.
+-- 
 
 public function add_action_cb(mighty_eagle_t self, sequence action_tag, atom function_id)
 	map:map m = eumem:ram_space[self][ACTION_CB]
@@ -109,6 +129,13 @@ end function
 -- # ##function_id## A routine_id to run when the specifice action_tag is found during parsing
 -- Returns:
 -- 0
+-- Comments:
+-- The function indentified by ##function_id## needs to implement the following 
+-- interface/function signature like the example below.
+-- <eucode>
+-- function tag_cb(mighty_eagle_t me, sequence tag, sequence tag_value, map:map context)
+-- </eucode>
+-- The function is expected to return a string or an atom if there was an error.
 
 public function add_tag_cb(mighty_eagle_t self, sequence tag, atom function_id)
 	map:map m = eumem:ram_space[self][TAG_CB]
@@ -138,14 +165,15 @@ end function
 -- If a tag can not be found in either the callbacks or data, the 
 -- function will insert the tag back into the return value.
 -- Parsing rules:
--- Opening a tag:
+-- [[[
 -- { opens a tag
--- = identifies that a tag is for subsitution
+-- ~= identifies that a tag is for substitution
 -- @ identifies that a tag is for action callbacks
 -- Example: ## {= ##
+-- ~:} closes a tag
 -- Spaces are allowed before and after tag name.
--- :} closes a tag
 -- Action tags can contain tags or other action tags.
+-- ]]]
 
 public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 	object retval = ""
@@ -154,7 +182,7 @@ public function parse(mighty_eagle_t self, sequence template_str, map:map data)
 	integer state = ECHO
 	integer tag_type = NONE
 	integer level = 0
-	sequence valid_tag_chars = "._abcdefghijk?lmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	sequence valid_tag_chars = "._abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	sequence current_char = {}
 	integer begin_open_position = 1
 	integer end_open_position = 1

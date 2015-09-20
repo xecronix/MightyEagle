@@ -4,7 +4,7 @@ include std/unittest.e
 include std/map.e
 include mightyeagle/mightyeagle.e
 include std/sequence.e
-with trace
+
 function action_cb(mighty_eagle_t me, sequence tag, sequence template, map:map context)
 	map:map data = map:new()
 	object retval = ""
@@ -22,10 +22,6 @@ function tag_cb(mighty_eagle_t me, sequence tag, sequence tag_value, map:map con
 		retval = sprintf("%s/%s/%s", {date_parts[2],date_parts[3],date_parts[1]})
 	end if
 	return retval
-end function 
-
-function invalid_return_action_cb(mighty_eagle_t me, sequence template, map:map context)
-	return 999
 end function 
 
 function invalid_return_tag_cb(mighty_eagle_t me, sequence tag, sequence tag_value, map:map context)
