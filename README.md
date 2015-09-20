@@ -20,7 +20,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Description:
-The Mighty Eagle Templating Solution capable of replacing a properly tagged text document with external data.  This solution has the added advantage of being easily extended via the use of callbacks.  Using callbacks a programmer can easily model recursive data and on the fly translations.  Some use cases include translation of data from one format to another and generic templated documents.  The program is particularly well suited for translation of relational data to hierarchical visualizations.
+The Mighty Eagle Templating Solution is capable of replacing a properly tagged text document with external data.  This solution has the added advantage of being easily extended via the use of callbacks.  Using callbacks a programmer can easily model recursive data and on the fly data translations.  Some use cases include translation of data from one format to another, generic templated documents, mail templates, and other similar tasks.  The program is particularly well suited for translation of relational data to hierarchical visualizations.
 
 ## Building:
 This library is intended to run as an interpreted Euphoria program.  
@@ -33,7 +33,7 @@ To use the library simply copy the project folder named mightyeagle to somewhere
 
 ## Bundling with your application:
 
-To bundle with your application you have at least 3 choices:
+To bundle with your application you have at least 2 choices:
 
 1. provide download instructions for your user
 2. place the mightyeagle in a location known to your software.  (like an  include path)
